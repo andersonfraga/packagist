@@ -124,7 +124,7 @@ class WebController extends Controller
      */
     public function popularAction(Request $req)
     {
-        $redis = $this->get('snc_redis.default');
+        /*$redis = $this->get('snc_redis.default');
         $popularIds = $redis->zrevrange(
             'downloads:trending',
             ($req->get('page', 1) - 1) * 15,
@@ -147,7 +147,9 @@ class WebController extends Controller
         );
         $data['meta'] = $this->getPackagesMetadata($data['packages']);
 
-        return $data;
+        return $data;*/
+
+        return array();
     }
 
     /**
@@ -252,7 +254,7 @@ class WebController extends Controller
                         'results' => array(),
                         'total' => $paginator->getNbResults(),
                     );
-                } catch (\Solarium_Client_HttpException $e) {
+                } catch (\Solarium\Exception\HttpException $e) {
                     return new JsonResponse(array(
                         'status' => 'error',
                         'message' => 'Could not connect to the search server',
@@ -297,7 +299,7 @@ class WebController extends Controller
                         'noLayout' => true,
                     ));
                 } catch (\Twig_Error_Runtime $e) {
-                    if (!$e->getPrevious() instanceof \Solarium_Client_HttpException) {
+                    if (!$e->getPrevious() instanceof \Solarium\Exception\HttpException) {
                         throw $e;
                     }
                     return new JsonResponse(array(
@@ -685,7 +687,7 @@ class WebController extends Controller
                 $update->addCommit();
 
                 $solarium->update($update);
-            } catch (\Solarium_Client_HttpException $e) {}
+            } catch (\Solarium\Exception\HttpException $e) {}
 
             return new RedirectResponse($this->generateUrl('home'));
         }

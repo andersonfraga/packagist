@@ -139,13 +139,19 @@ class IndexPackagesCommand extends ContainerAwareCommand
         unlink($lock);
     }
 
-    private function updateDocumentFromPackage(\Solarium_Document_ReadWrite $document, Package $package, $redis)
+    private function updateDocumentFromPackage(\Solarium\QueryType\Select\Result\AbstractDocument $document, Package $package, $redis)
     {
         $document->setField('id', $package->getId());
         $document->setField('name', $package->getName());
         $document->setField('description', $package->getDescription());
         $document->setField('type', $package->getType());
-        $document->setField('trendiness', $redis->zscore('downloads:trending', $package->getId()));
+
+        try {
+            $document->setField('trendiness', $redis->zscore('downloads:trending', $package->getId()));
+        }
+        catch(\Exception $e) {
+            $document->setField('trendiness', 1);
+        }
 
         $tags = array();
         foreach ($package->getVersions() as $version) {

@@ -25,7 +25,7 @@ class Controller extends BaseController
             $ids = array();
 
             foreach ($packages as $package) {
-                $ids[] = $package instanceof \Solarium_Document_ReadOnly ? $package->id : $package->getId();
+                $ids[] = $package instanceof \Solarium\QueryType\Select\Result\Document ? $package->id : $package->getId();
             }
 
             if (!$ids) {
