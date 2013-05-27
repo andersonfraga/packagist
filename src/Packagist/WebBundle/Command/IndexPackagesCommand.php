@@ -61,7 +61,6 @@ class IndexPackagesCommand extends ContainerAwareCommand
 
         $doctrine = $this->getContainer()->get('doctrine');
         $solarium = $this->getContainer()->get('solarium.client');
-        $redis = $this->getContainer()->get('snc_redis.default');
 
         $lock = $this->getContainer()->getParameter('kernel.cache_dir').'/composer-indexer.lock';
         $timeout = 600;
@@ -119,7 +118,7 @@ class IndexPackagesCommand extends ContainerAwareCommand
 
                 try {
                     $document = $update->createDocument();
-                    $this->updateDocumentFromPackage($document, $package, $redis);
+                    $this->updateDocumentFromPackage($document, $package);
                     $update->addDocument($document);
 
                     $package->setIndexedAt(new \DateTime);
@@ -139,19 +138,12 @@ class IndexPackagesCommand extends ContainerAwareCommand
         unlink($lock);
     }
 
-    private function updateDocumentFromPackage(\Solarium\QueryType\Select\Result\AbstractDocument $document, Package $package, $redis)
+    private function updateDocumentFromPackage(\Solarium\QueryType\Select\Result\AbstractDocument $document, Package $package)
     {
         $document->setField('id', $package->getId());
         $document->setField('name', $package->getName());
         $document->setField('description', $package->getDescription());
         $document->setField('type', $package->getType());
-
-        try {
-            $document->setField('trendiness', $redis->zscore('downloads:trending', $package->getId()));
-        }
-        catch(\Exception $e) {
-            $document->setField('trendiness', 1);
-        }
 
         $tags = array();
         foreach ($package->getVersions() as $version) {

@@ -25,7 +25,6 @@ use FOS\UserBundle\Model\UserInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Packagist\WebBundle\Entity\User;
 use Packagist\WebBundle\Entity\Package;
-use Packagist\WebBundle\Model\RedisAdapter;
 
 /**
  * @author Jordi Boggiano <j.boggiano@seld.be>
