@@ -43,7 +43,6 @@ class UserController extends Controller
 
         return array(
             'packages' => $packages,
-            'meta' => $this->getPackagesMetadata($packages),
             'user' => $user,
         );
     }
@@ -61,7 +60,6 @@ class UserController extends Controller
             'FOSUserBundle:Profile:show.html.'.$this->container->getParameter('fos_user.template.engine'),
             array(
                 'packages' => $packages,
-                'meta' => $this->getPackagesMetadata($packages),
                 'user' => $user,
             )
         );
@@ -79,79 +77,8 @@ class UserController extends Controller
 
         return array(
             'packages' => $packages,
-            'meta' => $this->getPackagesMetadata($packages),
             'user' => $user,
         );
-    }
-
-    /**
-     * @Template()
-     * @Route("/users/{name}/favorites/", name="user_favorites")
-     * @ParamConverter("user", options={"mapping": {"name": "username"}})
-     * @Method({"GET"})
-     */
-    public function favoritesAction(Request $req, User $user)
-    {
-        $paginator = new Pagerfanta(
-            new RedisAdapter($this->get('packagist.favorite_manager'), $user, 'getFavorites', 'getFavoriteCount')
-        );
-
-        $paginator->setMaxPerPage(15);
-        $paginator->setCurrentPage($req->query->get('page', 1), false, true);
-
-        try {
-            $this->get('snc_redis.default')->connect();
-        } catch (\Exception $e) {
-            $this->get('session')->getFlashBag()->set('error', 'Could not connect to the Redis database.');
-
-            return array('user' => $user, 'packages' => array());
-        }
-
-        return array('packages' => $paginator, 'user' => $user);
-    }
-
-    /**
-     * @Route("/users/{name}/favorites/", name="user_add_fav", defaults={"_format" = "json"})
-     * @ParamConverter("user", options={"mapping": {"name": "username"}})
-     * @Method({"POST"})
-     */
-    public function postFavoriteAction(User $user)
-    {
-        if ($user->getId() !== $this->getUser()->getId()) {
-            throw new AccessDeniedException('You can only change your own favorites');
-        }
-
-        $req = $this->getRequest();
-
-        $package = $req->request->get('package');
-        try {
-            $package = $this->getDoctrine()
-                ->getRepository('PackagistWebBundle:Package')
-                ->findOneByName($package);
-        } catch (NoResultException $e) {
-            throw new NotFoundHttpException('The given package "'.$package.'" was not found.');
-        }
-
-        $this->get('packagist.favorite_manager')->markFavorite($user, $package);
-
-        return new Response('{"status": "success"}', 201);
-    }
-
-    /**
-     * @Route("/users/{name}/favorites/{package}", name="user_remove_fav", defaults={"_format" = "json"}, requirements={"package"="[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?"})
-     * @ParamConverter("user", options={"mapping": {"name": "username"}})
-     * @ParamConverter("package", options={"mapping": {"package": "name"}})
-     * @Method({"DELETE"})
-     */
-    public function deleteFavoriteAction(User $user, Package $package)
-    {
-        if ($user->getId() !== $this->getUser()->getId()) {
-            throw new AccessDeniedException('You can only change your own favorites');
-        }
-
-        $this->get('packagist.favorite_manager')->removeFavorite($user, $package);
-
-        return new Response('{"status": "success"}', 204);
     }
 
     protected function getUserPackages($req, $user)

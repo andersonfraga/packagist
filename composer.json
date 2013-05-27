@@ -42,8 +42,6 @@
         "hwi/oauth-bundle": "dev-master",
         "nelmio/solarium-bundle": "2.*",
         "nelmio/security-bundle": "2.*",
-        "predis/predis": "0.8.*",
-        "snc/redis-bundle": "dev-master",
         "white-october/pagerfanta-bundle": "1.0.*@dev",
         "zendframework/zend-feed": "2.0.*",
         "zendframework/zend-servicemanager": "2.0.*",

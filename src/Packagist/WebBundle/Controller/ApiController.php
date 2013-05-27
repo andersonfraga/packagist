@@ -118,23 +118,6 @@ class ApiController extends Controller
     }
 
     /**
-     * @Route("/downloads/{name}", name="track_download", requirements={"name"="[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"}, defaults={"_format" = "json"})
-     * @Method({"POST"})
-     */
-    public function trackDownloadAction(Request $request, $name)
-    {
-        $result = $this->getPackageAndVersionId($name, $request->request->get('version_normalized'));
-
-        if (!$result) {
-            return new JsonResponse(array('status' => 'error', 'message' => 'Package not found'), 200);
-        }
-
-        $this->trackDownload($result['id'], $result['vid'], $request->getClientIp());
-
-        return new JsonResponse(array('status' => 'success'), 201);
-    }
-
-    /**
      * Expects a json like:
      *
      * {
@@ -164,8 +147,6 @@ class ApiController extends Controller
                 $failed[] = $package;
                 continue;
             }
-
-            $this->trackDownload($result['id'], $result['vid'], $request->getClientIp());
         }
 
         if ($failed) {
@@ -186,21 +167,6 @@ class ApiController extends Controller
             LIMIT 1',
             array($name, $version)
         );
-    }
-
-    protected function trackDownload($id, $vid, $ip)
-    {
-        $redis = $this->get('snc_redis.default');
-        $manager = $this->get('packagist.download_manager');
-
-        $throttleKey = 'dl:'.$id.':'.$ip.':'.date('Ymd');
-        $requests = $redis->incr($throttleKey);
-        if (1 === $requests) {
-            $redis->expire($throttleKey, 86400);
-        }
-        if ($requests <= 10) {
-            $manager->addDownload($id, $vid);
-        }
     }
 
     /**

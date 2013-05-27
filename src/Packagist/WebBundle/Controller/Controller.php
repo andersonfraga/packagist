@@ -19,23 +19,4 @@ use Symfony\Bundle\FrameworkBundle\Controller\Controller as BaseController;
  */
 class Controller extends BaseController
 {
-    protected function getPackagesMetadata($packages)
-    {
-        try {
-            $ids = array();
-
-            foreach ($packages as $package) {
-                $ids[] = $package instanceof \Solarium\QueryType\Select\Result\Document ? $package->id : $package->getId();
-            }
-
-            if (!$ids) {
-                return;
-            }
-
-            return array(
-                'downloads' => $this->get('packagist.download_manager')->getPackagesDownloads($ids),
-                'favers' => $this->get('packagist.favorite_manager')->getFaverCounts($ids),
-            );
-        } catch (\Predis\Connection\ConnectionException $e) {}
-    }
 }

@@ -22,23 +22,6 @@
                     {% endfor %}
                 </ul>
             </div>
-            <div class="packages-short">
-                <h2>Popular Packages</h2>
-                <ul>
-                    {% for pkg in popular %}
-                        <li><a href="{{ path('view_package', {name: pkg.name}) }}">{{ pkg.name }}</a> {{ pkg.description|truncate(40) }}</li>
-                    {% endfor %}
-                    <li><a href="{{ path('browse_popular') }}">See more...</a></li>
-                </ul>
-            </div>
-            <div class="packages-short">
-                <h2>Random Packages</h2>
-                <ul>
-                    {% for pkg in random %}
-                        <li><a href="{{ path('view_package', {name: pkg.name}) }}">{{ pkg.name }}</a> {{ pkg.description|truncate(40) }}</li>
-                    {% endfor %}
-                </ul>
-            </div>
         {% endblock %}
     </div>
 {% endblock %}

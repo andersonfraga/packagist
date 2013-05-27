@@ -35,9 +35,7 @@
                 </form>
             {% endif %}
             <h1>
-                {% if is_favorite is defined %}
-                    <i class="mark-favorite icon-star{% if not is_favorite %}-empty{% endif %}" data-remove-url="{{ path('user_remove_fav', {name: app.user.username, package: package.name}) }}" data-add-url="{{ path('user_add_fav', {name: app.user.username}) }}" data-package="{{ package.name }}"></i>
-                {% endif %}
+
                 <a href="{{ path("view_vendor", {"vendor": package.vendor}) }}">{{ package.vendor }}/</a>{{ package.packageName }}
                 <a id="copy" data-clipboard-text="{{ package.name }}" title="Copy to clipboard"><i class="icon-copy"></i></a>
             </h1>
@@ -61,12 +59,6 @@
             %}
                 <p class="warning">This package is in a broken state and will not update anymore. Some branches contain invalid data and until you fix them the entire package is frozen. Click "Force Update" above to see details.</p>
             {% endif %}
-
-            <p class="downloads">
-                <span>Overall:</span> {{ downloads.total }} installs<br />
-                <span>This month:</span> {{ downloads.monthly }} installs<br />
-                <span>Today:</span> {{ downloads.daily }} installs<br />
-            </p>
 
             <p class="description">{{ package.description }}</p>
             <p class="details">

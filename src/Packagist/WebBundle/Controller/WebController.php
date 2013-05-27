@@ -41,7 +41,6 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Pagerfanta\Pagerfanta;
 use Pagerfanta\Adapter\DoctrineORMAdapter;
 use Pagerfanta\Adapter\SolariumAdapter;
-use Predis\Connection\ConnectionException;
 
 /**
  * @author Jordi Boggiano <j.boggiano@seld.be>
@@ -76,7 +75,6 @@ class WebController extends Controller
             ->getFilteredQueryBuilder($filters);
 
         $data['packages'] = $this->setupPager($packages, $page);
-        $data['meta'] = $this->getPackagesMetadata($data['packages']);
         $data['searchForm'] = $this->createSearchForm()->createView();
 
         return $data;
@@ -92,64 +90,14 @@ class WebController extends Controller
         $verRepo = $this->getDoctrine()->getRepository('PackagistWebBundle:Version');
         $newSubmitted = $pkgRepo->getQueryBuilderForNewestPackages()->setMaxResults(10)->getQuery()->getResult();
         $newReleases = $verRepo->getLatestReleases(10);
-        $randomIds = $this->getDoctrine()->getConnection()->fetchAll('SELECT id FROM package ORDER BY RAND() LIMIT 10');
-        $random = $pkgRepo->createQueryBuilder('p')->where('p.id IN (:ids)')->setParameter('ids', $randomIds)->getQuery()->getResult();
-        try {
-            $popular = array();
-            $popularIds = $this->get('snc_redis.default')->zrevrange('downloads:trending', 0, 9);
-            if ($popularIds) {
-                $popular = $pkgRepo->createQueryBuilder('p')->where('p.id IN (:ids)')->setParameter('ids', $popularIds)->getQuery()->getResult();
-                usort($popular, function ($a, $b) use ($popularIds) {
-                    return array_search($a->getId(), $popularIds) > array_search($b->getId(), $popularIds) ? 1 : -1;
-                });
-            }
-        } catch (ConnectionException $e) {
-            $popular = array();
-        }
 
         $data = array(
             'newlySubmitted' => $newSubmitted,
             'newlyReleased' => $newReleases,
-            'random' => $random,
-            'popular' => $popular,
             'searchForm' => $this->createSearchForm()->createView(),
         );
 
         return $data;
-    }
-
-    /**
-     * @Template()
-     * @Route("/explore/popular", name="browse_popular")
-     */
-    public function popularAction(Request $req)
-    {
-        /*$redis = $this->get('snc_redis.default');
-        $popularIds = $redis->zrevrange(
-            'downloads:trending',
-            ($req->get('page', 1) - 1) * 15,
-            $req->get('page', 1) * 15 - 1
-        );
-        $popular = $this->getDoctrine()->getRepository('PackagistWebBundle:Package')
-            ->createQueryBuilder('p')->where('p.id IN (:ids)')->setParameter('ids', $popularIds)
-            ->getQuery()->getResult();
-        usort($popular, function ($a, $b) use ($popularIds) {
-            return array_search($a->getId(), $popularIds) > array_search($b->getId(), $popularIds) ? 1 : -1;
-        });
-
-        $packages = new Pagerfanta(new FixedAdapter($redis->zcard('downloads:trending'), $popular));
-        $packages->setMaxPerPage(15);
-        $packages->setCurrentPage($req->get('page', 1), false, true);
-
-        $data = array(
-            'packages' => $packages,
-            'searchForm' => $this->createSearchForm()->createView(),
-        );
-        $data['meta'] = $this->getPackagesMetadata($data['packages']);
-
-        return $data;*/
-
-        return array();
     }
 
     /**
@@ -246,8 +194,6 @@ class WebController extends Controller
             $paginator->setMaxPerPage(15);
             $paginator->setCurrentPage($req->query->get('page', 1), false, true);
 
-            $metadata = $this->getPackagesMetadata($paginator);
-
             if ($req->getRequestFormat() === 'json') {
                 try {
                     $result = array(
@@ -268,8 +214,6 @@ class WebController extends Controller
                         'name' => $package->name,
                         'description' => $package->description ?: '',
                         'url' => $url,
-                        'downloads' => $metadata['downloads'][$package->id],
-                        'favers' => $metadata['favers'][$package->id],
                     );
                 }
 
@@ -295,7 +239,6 @@ class WebController extends Controller
                 try {
                     return $this->render('PackagistWebBundle:Web:list.html.twig', array(
                         'packages' => $paginator,
-                        'meta' => $metadata,
                         'noLayout' => true,
                     ));
                 } catch (\Twig_Error_Runtime $e) {
@@ -311,7 +254,6 @@ class WebController extends Controller
 
             return $this->render('PackagistWebBundle:Web:search.html.twig', array(
                 'packages' => $paginator,
-                'meta' => $metadata,
                 'searchForm' => $form->createView(),
             ));
         } elseif ($req->getRequestFormat() === 'json') {
@@ -431,7 +373,6 @@ class WebController extends Controller
 
         return array(
             'packages' => $packages,
-            'meta' => $this->getPackagesMetadata($packages),
             'vendor' => $vendor,
             'paginate' => false,
             'searchForm' => $this->createSearchForm()->createView()
@@ -466,14 +407,6 @@ class WebController extends Controller
         if ('json' === $req->getRequestFormat()) {
             $data = $package->toArray();
 
-            try {
-                $data['downloads'] = $this->get('packagist.download_manager')->getDownloads($package);
-                $data['favers'] = $this->get('packagist.favorite_manager')->getFaverCount($package);
-            } catch (ConnectionException $e) {
-                $data['downloads'] = null;
-                $data['favers'] = null;
-            }
-
             // TODO invalidate cache on update and make the ttl longer
             $response = new Response(json_encode(array('package' => $data)), 200);
             $response->setSharedMaxAge(3600);
@@ -488,20 +421,6 @@ class WebController extends Controller
         }
 
         $data = array('package' => $package, 'version' => $version);
-
-        try {
-            $data['downloads'] = $this->get('packagist.download_manager')->getDownloads($package);
-
-            if ($this->getUser()) {
-                $data['is_favorite'] = $this->get('packagist.favorite_manager')->isMarked($this->getUser(), $package);
-            }
-        } catch (ConnectionException $e) {
-            $data['downloads'] = array(
-                'total' => 'N/A',
-                'monthly' => 'N/A',
-                'daily' => 'N/A',
-            );
-        }
 
         $data['searchForm'] = $this->createSearchForm()->createView();
         if ($maintainerForm = $this->createAddMaintainerForm($package)) {
@@ -798,49 +717,10 @@ class WebController extends Controller
             $chart['versions'] += array_fill(0, count($chart['months']) - count($chart['versions']), max($chart['versions']));
         }
 
-
-        $res = $this->getDoctrine()
-            ->getConnection()
-            ->fetchAssoc('SELECT DATE_FORMAT(createdAt, "%Y-%m-%d") createdAt FROM `package` ORDER BY id LIMIT 1');
-        $downloadsStartDate = $res['createdAt'] > '2012-04-13' ? $res['createdAt'] : '2012-04-13';
-
-        try {
-            $redis = $this->get('snc_redis.default');
-            $downloads = $redis->get('downloads') ?: 0;
-
-            $date = new \DateTime($downloadsStartDate.' 00:00:00');
-            $yesterday = new \DateTime('-2days 00:00:00');
-
-            $dlChart = $dlChartMonthly = array();
-            while ($date <= $yesterday) {
-                $dlChart[$date->format('Y-m-d')] = 'downloads:'.$date->format('Ymd');
-                $dlChartMonthly[$date->format('Y-m')] = 'downloads:'.$date->format('Ym');
-                $date->modify('+1day');
-            }
-
-            $dlChart = array(
-                'labels' => array_keys($dlChartMonthly),
-                'values' => $redis->mget(array_values($dlChart))
-            );
-            $dlChartMonthly = array(
-                'labels' => array_keys($dlChartMonthly),
-                'values' => $redis->mget(array_values($dlChartMonthly))
-            );
-        } catch (ConnectionException $e) {
-            $downloads = 'N/A';
-            $dlChart = $dlChartMonthly = null;
-        }
-
         return array(
             'chart' => $chart,
             'packages' => max($chart['packages']),
             'versions' => max($chart['versions']),
-            'downloads' => $downloads,
-            'downloadsChart' => $dlChart,
-            'maxDailyDownloads' => !empty($dlChart) ? max($dlChart['values']) : null,
-            'downloadsChartMonthly' => $dlChartMonthly,
-            'maxMonthlyDownloads' => !empty($dlChartMonthly) ? max($dlChartMonthly['values']) : null,
-            'downloadsStartDate' => $downloadsStartDate,
         );
     }
 
@@ -883,17 +763,6 @@ class WebController extends Controller
         if (!$this->get('security.context')->isGranted('ROLE_DELETE_PACKAGES')) {
             // non maintainers can not delete
             if (!$package->getMaintainers()->contains($user)) {
-                return;
-            }
-
-            try {
-                $downloads = $this->get('packagist.download_manager')->getDownloads($package);
-            } catch (ConnectionException $e) {
-                return;
-            }
-
-            // more than 50 downloads = established package, do not allow deletion by maintainers
-            if ($downloads['total'] > 50) {
                 return;
             }
         }
