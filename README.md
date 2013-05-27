@@ -7,9 +7,10 @@ Requirements
 ------------
 
 - MySQL for the main data store
-- Redis for some functionality (favorites, download statistics)
 - Solr for search
 - git/svn/hg depending on which repositories you want to support
+
+- If needs favorites and download counts funcionality (default packagist), please clone [original repo](https://github.com/composer/packagist)
 
 Installation
 ------------

@@ -57,10 +57,7 @@ class ApiController extends Controller
         $packages = $em->getRepository('Packagist\WebBundle\Entity\Package')
             ->getFullPackages();
 
-        $notifyUrl = $this->generateUrl('track_download', array('name' => 'VND/PKG'));
-
         $data = array(
-            'notify' => str_replace('VND/PKG', '%package%', $notifyUrl),
             'packages' => array(),
         );
         foreach ($packages as $package) {
